@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 from typing import List, Union
 import logging
 from app.services.llm_service import llm_service
+=======
+from typing import List
+from openai import OpenAI
+from app.config import settings
+>>>>>>> 39b93c7f5a15000ce1087200b5a45e0162204564
 
 logger = logging.getLogger(__name__)
 
