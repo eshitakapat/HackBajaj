@@ -2,22 +2,18 @@
 import json
 import logging
 from typing import Dict, List, Any, Optional
+import httpx
 
-from openai import OpenAI, APIError
-
-from app.config import settings
+from app.core.config import settings
 from app.Models.schemas import ParsedQuery
 
 logger = logging.getLogger(__name__)
-
-# Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 class PolicyQueryParser:
     """Handles parsing and processing of policy-related queries."""
     
     @staticmethod
-    def parse_question(question: str) -> Dict[str, Any]:
+    async def parse_question(question: str) -> Dict[str, Any]:
         """
         Analyzes insurance policy questions and extracts structured information.
         
@@ -28,9 +24,15 @@ class PolicyQueryParser:
             Dict containing parsed information about the question
         """
         try:
-            response = client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
+            headers = {
+                "Authorization": f"Bearer {settings.OPENROUTER_API_KEY.get_secret_value()}",
+                "HTTP-Referer": "https://your-site.com",  # Required by OpenRouter
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": settings.DEFAULT_LLM_MODEL,
+                "messages": [
                     {
                         "role": "system",
                         "content": """Analyze the insurance policy question and return a JSON with:
@@ -41,34 +43,45 @@ class PolicyQueryParser:
                     },
                     {"role": "user", "content": question}
                 ],
-                temperature=0.0,
-                response_format={"type": "json_object"}
-            )
+                "temperature": 0.0,
+                "response_format": {"type": "json_object"}
+            }
             
-            result = response.choices[0].message.content
-            parsed_data = json.loads(result)
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+            content = result["choices"][0]["message"]["content"]
+            parsed_data = json.loads(content)
             
-            # Validate and return the parsed data
+            # Ensure required fields exist
             return {
                 "policy_section": parsed_data.get("policy_section", "general"),
                 "query_type": parsed_data.get("query_type", "general_inquiry"),
-                "key_terms": parsed_data.get("key_terms", [])
+                "key_terms": parsed_data.get("key_terms", []),
+                "raw_response": parsed_data
             }
             
         except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse JSON response for question: {question}")
+            logger.error(f"Failed to parse JSON response: {str(e)}")
             return {
                 "policy_section": "general",
                 "query_type": "general_inquiry",
-                "key_terms": []
+                "key_terms": [],
+                "error": "Failed to parse response"
             }
-        except APIError as e:
-            logger.error(f"OpenAI API error: {str(e)}")
-            raise
+            
         except Exception as e:
-            logger.error(f"Unexpected error in parse_question: {str(e)}")
+            logger.error(f"Error in parse_question: {str(e)}")
             return {
                 "policy_section": "general",
-                "query_type": "error",
-                "key_terms": []
+                "query_type": "general_inquiry",
+                "key_terms": [],
+                "error": str(e)
             }

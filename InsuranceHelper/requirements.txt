@@ -1,26 +1,25 @@
-# Core Dependencies
-fastapi>=0.95.0
-uvicorn>=0.22.0
-python-dotenv>=1.0.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
-
-# OpenAI
-openai>=1.0.0
-
-# PDF Processing
-PyPDF2>=3.0.0
-
-# Async HTTP
-httpx>=0.25.0
-
-# Testing
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-pytest-cov>=4.0.0
-
-# Development
-black>=23.0.0
-isort>=5.12.0
-mypy>=1.0.0
-flake8>=6.0.0
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+httpx
+PyPDF2
+python-dotenv
+pytest  # for testing
+dotenv  # for loading .env files
+pytest-asyncio  # for async test support
+sentence-transformers
+torch
+numpy
+pinecone-client
+# Optional/test/dev dependencies
+pytest
+pytest-asyncio
+# If using Alembic for migrations
+alembic
+# If using CORS middleware
+starlette
+# If using Gunicorn for production
+# gunicorn
+# If using PyMuPDF for PDF extraction (if referenced in code)
+# pymupdf

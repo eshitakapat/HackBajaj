@@ -1,20 +1,25 @@
 # Insurance Helper API
 
-A FastAPI-based service for processing insurance policy documents and answering questions about them using natural language processing.
+A FastAPI-based service for processing insurance policy documents and answering questions using advanced NLP and vector search.
 
 ## Features
 
-- Process insurance policy documents from PDF URLs
-- Answer natural language questions about policy details
-- Secure API with Bearer token authentication
-- Asynchronous processing for better performance
-- Structured response format
+- **Document Processing**: Upload and process insurance documents (PDF, DOCX, TXT)
+- **Semantic Search**: Find relevant document chunks using vector embeddings
+- **Q&A System**: Ask natural language questions about your insurance documents
+- **Mistral Integration**: Powered by Mistral 7B via OpenRouter for high-quality responses
+- **Document Management**: Track document processing status and history
+- **Secure API**: JWT token authentication
+- **Asynchronous Processing**: Background processing for document ingestion
+- **Structured Responses**: Consistent JSON output format
+- **Database Storage**: PostgreSQL for document and question storage
 
 ## Prerequisites
 
 - Python 3.8+
-- OpenAI API key
+- PostgreSQL database
 - Python virtual environment (recommended)
+- CUDA-enabled GPU (recommended for faster processing)
 
 ## Installation
 
@@ -40,15 +45,63 @@ A FastAPI-based service for processing insurance policy documents and answering 
 
 4. Create a `.env` file in the project root and add your configuration:
    ```ini
-   # Application Settings
-   DEBUG=True
-   API_KEY=your_secure_api_key_here
-   
-   # OpenAI Settings
-   OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-4
-   EMBEDDING_MODEL=text-embedding-3-small
+   # Required
+   OPENROUTER_API_KEY=your-openrouter-api-key
+   DEFAULT_LLM_MODEL=mistralai/mistral-7b-instruct
+
+   # Database
+   POSTGRES_SERVER=localhost
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=postgres
+   POSTGRES_DB=insurance_helper
+
+   # Pinecone
+   PINECONE_API_KEY=your-pinecone-api-key
+   PINECONE_ENVIRONMENT=your-pinecone-environment
+   PINECONE_INDEX=insurance-helper
    ```
+
+5. Initialize the database:
+   ```bash
+   python -m scripts.init_database
+   ```
+
+## API Endpoints
+
+### Document Management
+- `POST /api/documents/`: Upload a new document
+- `GET /api/documents/`: List all documents
+- `GET /api/documents/{doc_id}`: Get document details
+- `DELETE /api/documents/{doc_id}`: Delete a document
+
+### Question Answering
+- `POST /api/ask`: Ask a question about your documents
+  ```json
+  {
+    "question": "What is the coverage limit for natural disasters?",
+    "document_ids": ["doc1", "doc2"]
+  }
+  ```
+
+### Semantic Search
+- `POST /api/search`: Search for relevant document chunks
+  ```json
+  {
+    "query": "natural disaster coverage",
+    "top_k": 5
+  }
+  ```
+
+### Document Processing
+
+- `POST /api/documents/process` - Process a document from a URL
+- `POST /api/documents/upload` - Upload and process a document file
+- `GET /api/documents/{document_id}` - Get document details
+- `GET /api/documents/{document_id}/questions` - Get questions for a document
+
+### HackRx API
+
+- `POST /api/hackrx` - Process documents and answer questions in HackRx format
 
 ## Running the Application
 
@@ -57,42 +110,36 @@ A FastAPI-based service for processing insurance policy documents and answering 
    uvicorn app.main:app --reload
    ```
 
-2. The API will be available at `http://localhost:8000`
+2. Access the API documentation at http://localhost:8000/docs
 
-3. Access the interactive API documentation at `http://localhost:8000/docs`
+## Document Processing Pipeline
 
-## API Endpoints
+The document processing pipeline consists of the following steps:
 
-### POST /hackrx/run
+1. **Document Ingestion**:
+   - Accepts documents via URL or file upload
+   - Validates file type and size
+   - Tracks document status in the database
 
-Process an insurance policy document and answer questions about it.
+2. **Text Extraction**:
+   - Supports multiple document formats (PDF, DOCX, TXT, etc.)
+   - Uses appropriate libraries for each format
+   - Preserves document structure and formatting
 
-**Headers:**
-```
-Authorization: Bearer <your_api_key>
-Content-Type: application/json
-```
+3. **Text Chunking**:
+   - Splits text into meaningful chunks with overlap
+   - Preserves context across chunk boundaries
+   - Handles various document structures
 
-**Request Body:**
-```json
-{
-    "documents": "https://example.com/policy.pdf",
-    "questions": [
-        "What is the grace period for premium payment?",
-        "What is covered under this policy?"
-    ]
-}
-```
+4. **Embedding Generation**:
+   - Uses sentence-transformers for vector embeddings
+   - Generates high-dimensional vectors
+   - Normalized for cosine similarity
 
-**Response:**
-```json
-{
-    "answers": [
-        "The grace period is 30 days.",
-        "The policy covers medical expenses up to the sum insured."
-    ]
-}
-```
+5. **Vector Storage**:
+   - Stores vectors in Pinecone vector database
+   - Supports fast similarity search
+   - Maintains document metadata and relationships
 
 ## Project Structure
 
@@ -100,19 +147,29 @@ Content-Type: application/json
 InsuranceHelper/
 ├── app/
 │   ├── api/
-│   │   └── routes.py         # API routes and endpoints
-│   ├── Models/
+│   │   ├── endpoints/        # API endpoint modules
+│   │   └── __init__.py
+│   ├── core/                 # Core application code
+│   │   └── config.py         # Application configuration
+│   ├── db/                   # Database configuration
 │   │   ├── __init__.py
-│   │   ├── schemas.py        # Pydantic models
-│   │   └── db_models.py      # Database models (if needed)
-│   ├── services/
+│   │   ├── session.py        # Database session management
+│   │   └── init_db.py        # Database initialization
+│   ├── models/               # Database models
 │   │   ├── __init__.py
-│   │   ├── query_handling.py # Question parsing and processing
-│   │   ├── embedding_search.py # Text embedding generation
-│   │   ├── document_processing.py # PDF text extraction
-│   │   └── json_output.py    # Response formatting
-│   ├── config.py             # Application configuration
+│   │   ├── document_models.py # Document and Question models
+│   │   └── user.py           # User authentication models
+│   ├── services/             # Business logic
+│   │   ├── __init__.py
+│   │   ├── document_processor.py # Document processing logic
+│   │   ├── document_store.py # Database operations
+│   │   ├── semantic_search.py # Vector search functionality
+│   │   └── vector_store.py   # Vector database interface
+│   ├── schemas/              # Pydantic schemas
+│   │   └── __init__.py
 │   └── main.py               # Application entry point
+├── scripts/                  # Utility scripts
+│   └── init_database.py      # Database initialization script
 ├── tests/                    # Test files
 ├── .env                      # Environment variables
 ├── .gitignore
@@ -125,10 +182,15 @@ InsuranceHelper/
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
 | `DEBUG` | Enable debug mode | No | `False` |
-| `API_KEY` | API key for authentication | Yes | - |
-| `OPENAI_API_KEY` | OpenAI API key | Yes | - |
-| `OPENAI_MODEL` | OpenAI model to use | No | `gpt-4` |
-| `EMBEDDING_MODEL` | OpenAI embedding model | No | `text-embedding-3-small` |
+| `OPENROUTER_API_KEY` | OpenRouter API key | Yes | - |
+| `DEFAULT_LLM_MODEL` | Default LLM model | Yes | - |
+| `POSTGRES_SERVER` | PostgreSQL server | Yes | - |
+| `POSTGRES_USER` | PostgreSQL user | Yes | - |
+| `POSTGRES_PASSWORD` | PostgreSQL password | Yes | - |
+| `POSTGRES_DB` | PostgreSQL database | Yes | - |
+| `PINECONE_API_KEY` | Pinecone API key | Yes | - |
+| `PINECONE_ENVIRONMENT` | Pinecone environment | Yes | - |
+| `PINECONE_INDEX` | Pinecone index | Yes | - |
 
 ## Development
 
