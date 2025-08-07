@@ -1,25 +1,33 @@
-<<<<<<< HEAD
-from typing import List, Union
+from typing import List, Optional
 import logging
-from app.services.llm_service import llm_service
-=======
-from typing import List
-from openai import OpenAI
-from app.config import settings
->>>>>>> 39b93c7f5a15000ce1087200b5a45e0162204564
+import torch
+from sentence_transformers import SentenceTransformer
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class PolicyEmbeddingGenerator:
-    """Handles generation and management of document embeddings."""
+    """Handles generation and management of document embeddings using sentence-transformers."""
     
-    def __init__(self, model: str = None):
+    def __init__(self, model_name: str = 'all-MiniLM-L6-v2'):
         """Initialize the embedding generator.
         
         Args:
-            model: The embedding model to use (defaults to the one in settings)
+            model_name: The sentence-transformers model to use (default: 'all-MiniLM-L6-v2')
         """
-        self.model = model
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model = None
+        self.model_name = model_name
+        self._initialize_model()
+    
+    def _initialize_model(self):
+        """Initialize the sentence transformer model."""
+        try:
+            self.model = SentenceTransformer(self.model_name, device=self.device)
+            logger.info(f"Initialized sentence transformer model: {self.model_name} on {self.device}")
+        except Exception as e:
+            logger.error(f"Failed to initialize model {self.model_name}: {str(e)}")
+            raise
     
     async def generate_embedding(self, text: str) -> List[float]:
         """
@@ -32,14 +40,18 @@ class PolicyEmbeddingGenerator:
             List[float]: Vector embedding (dimensions depend on the model)
         """
         try:
-            # Get embeddings for the text
-            embeddings = await llm_service.get_embeddings([text], model=self.model)
-            return embeddings[0] if embeddings else None
+            if not text or not text.strip():
+                logger.warning("Empty text provided for embedding generation")
+                return [0.0] * 384  # Default dimension for all-MiniLM-L6-v2
+                
+            # Generate embedding
+            embedding = self.model.encode(text, convert_to_tensor=False)
+            return embedding.tolist()
             
         except Exception as e:
             logger.error(f"Error generating embedding: {str(e)}")
             # Return a zero vector if there's an error
-            return [0.0] * 1536  # Default dimension for text-embedding-3-small
+            return [0.0] * 384  # Default dimension for all-MiniLM-L6-v2
     
     async def batch_generate_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
@@ -55,16 +67,23 @@ class PolicyEmbeddingGenerator:
             return []
             
         try:
-            return await llm_service.get_embeddings(texts, model=self.model)
+            # Filter out empty texts
+            valid_texts = [text for text in texts if text and text.strip()]
+            if not valid_texts:
+                return []
+                
+            # Generate embeddings in a batch
+            embeddings = self.model.encode(valid_texts, convert_to_tensor=False)
+            return embeddings.tolist()
+            
         except Exception as e:
             logger.error(f"Error in batch embedding generation: {str(e)}")
             # Return zero vectors for all inputs if there's an error
-            return [[0.0] * 1536 for _ in texts]
+            return [[0.0] * 384 for _ in texts]  # Default dimension for all-MiniLM-L6-v2
 
-# Create a default instance for backward compatibility
+# Create a default instance
 embedding_generator = PolicyEmbeddingGenerator()
 
-# For backward compatibility
-async def generate_embedding(text: str) -> List[float]:
-    """Generate a single embedding (legacy function)."""
-    return await embedding_generator.generate_embedding(text)
+def generate_embedding(text: str) -> List[float]:
+    """Generate a single embedding."""
+    return embedding_generator.generate_embedding(text)

@@ -1,24 +1,25 @@
-"""Vector store service using Pinecone for efficient similarity search."""
+"""Vector store service with graceful Pinecone fallback."""
 import logging
 import json
 from typing import List, Dict, Optional, Any, Tuple
 from collections import defaultdict
 import numpy as np
 
-# Try to import Pinecone
+# Try to import Pinecone with graceful fallback
 PINECONE_AVAILABLE = False
 try:
     from pinecone import Pinecone, ServerlessSpec
     PINECONE_AVAILABLE = True
 except ImportError:
-    pass
+    logger = logging.getLogger(__name__)
+    logger.warning("Pinecone not available. Using in-memory storage.")
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class VectorStore:
-    """A class to handle vector storage and similarity search using Pinecone."""
+    """A class to handle vector storage with Pinecone fallback to in-memory."""
     
     def __init__(self):
         self.metric = "cosine"
@@ -27,25 +28,22 @@ class VectorStore:
         self._pc = None
         self._index = None
         self._in_memory_store = defaultdict(list)
+        self.available = True  # Always available with fallback
         
+        # Try Pinecone initialization
         if PINECONE_AVAILABLE and settings.PINECONE_API_KEY:
             try:
                 self._initialize_pinecone()
-                self.available = True
-                logger.info("Pinecone vector store initialized")
+                logger.info("Pinecone vector store initialized successfully")
             except Exception as e:
-                logger.error(f"Pinecone init failed: {e}")
-                logger.warning("Falling back to in-memory vector store")
-                self.available = True
+                logger.warning(f"Pinecone initialization failed: {e}. Using in-memory storage.")
         else:
-            logger.warning("Using in-memory vector store (not recommended for production)")
-            self.available = True
+            logger.info("Using in-memory vector store (suitable for development)")
     
     def _initialize_pinecone(self):
         """Initialize Pinecone client and index."""
         try:
-            self._use_pinecone = True
-            self._pc = Pinecone(api_key=settings.PINECONE_API_KEY.get_secret_value())
+            self._pc = Pinecone(api_key=settings.PINECONE_API_KEY)
             
             # Get or create index
             existing_indexes = [index.name for index in self._pc.list_indexes()]
@@ -58,13 +56,14 @@ class VectorStore:
                     metric=self.metric,
                     spec=ServerlessSpec(
                         cloud="aws",
-                        region="us-east-1"  # Default region
+                        region="us-east-1"
                     )
                 )
                 logger.info(f"Created new Pinecone index: {settings.PINECONE_INDEX}")
             
             # Connect to the index
             self._index = self._pc.Index(settings.PINECONE_INDEX)
+            self._use_pinecone = True
             logger.info(f"Connected to Pinecone index: {settings.PINECONE_INDEX}")
             
         except Exception as e:
@@ -74,7 +73,7 @@ class VectorStore:
     
     async def upsert_document(self, doc_id: str, chunks: List[Dict[str, Any]]) -> bool:
         """Upsert document chunks with embeddings to vector store."""
-        if not self.available or not chunks:
+        if not chunks:
             return False
             
         try:
@@ -109,7 +108,7 @@ class VectorStore:
     
     async def upsert_vectors(self, vectors: List[Tuple[str, List[float], Dict]], namespace: str = None) -> bool:
         """Upsert vectors to the vector store."""
-        if not self.available or not vectors:
+        if not vectors:
             return False
             
         try:
@@ -132,8 +131,12 @@ class VectorStore:
                         'metadata': metadata or {}
                     })
                 
-                # Upsert vectors
-                self._index.upsert(vectors=pinecone_vectors, namespace=namespace)
+                # Upsert in batches
+                batch_size = 100
+                for i in range(0, len(pinecone_vectors), batch_size):
+                    batch = pinecone_vectors[i:i + batch_size]
+                    self._index.upsert(vectors=batch, namespace=namespace)
+                
                 return True
                 
             else:
@@ -167,9 +170,6 @@ class VectorStore:
     ) -> List[Dict[str, Any]]:
         """Semantic search using query embedding and document context."""
         try:
-            if not self.available:
-                return []
-                
             # Get query embedding
             from app.services.document_processor import document_processor
             document_processor._initialize_embedding_model()
@@ -224,7 +224,7 @@ class VectorStore:
         include_metadata: bool = True
     ) -> List[Dict]:
         """Search for similar vectors in the vector store."""
-        if not self.available or not query_vector:
+        if not query_vector:
             return []
             
         try:

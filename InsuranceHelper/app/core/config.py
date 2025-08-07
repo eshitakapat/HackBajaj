@@ -1,10 +1,10 @@
 """Application configuration settings."""
 from pathlib import Path
-from typing import List, Union
-from pydantic import BaseSettings, Field, validator, SecretStr
+from typing import List, Union, Optional
+from pydantic import BaseSettings, Field, validator
+from pydantic_settings import BaseSettings as PydanticBaseSettings
 
-
-class Settings(BaseSettings):
+class Settings(PydanticBaseSettings):
     # API settings
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "Insurance Helper API"
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
+        default=["*"],  # Allow all origins for now
         env="CORS_ORIGINS"
     )
     
@@ -32,14 +32,14 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = Field(default=50, env="MAX_FILE_SIZE_MB")
     UPLOAD_DIR: str = Field(default="uploads", env="UPLOAD_DIR")
     
-    # Vector Store (Pinecone)
-    PINECONE_API_KEY: SecretStr = Field(..., env="PINECONE_API_KEY")
-    PINECONE_ENVIRONMENT: str = Field(..., env="PINECONE_ENVIRONMENT")
-    PINECONE_INDEX: str = Field(..., env="PINECONE_INDEX")
+    # Vector Store (Pinecone) - Optional
+    PINECONE_API_KEY: Optional[str] = Field(default=None, env="PINECONE_API_KEY")
+    PINECONE_ENVIRONMENT: str = Field(default="us-east-1", env="PINECONE_ENVIRONMENT")
+    PINECONE_INDEX: str = Field(default="insurance-helper", env="PINECONE_INDEX")
     EMBEDDING_DIMENSION: int = Field(default=384, env="EMBEDDING_DIMENSION")
     
-    # LLM Configuration
-    OPENROUTER_API_KEY: SecretStr = Field(..., env="OPENROUTER_API_KEY")
+    # LLM Configuration - Optional
+    OPENROUTER_API_KEY: Optional[str] = Field(default=None, env="OPENROUTER_API_KEY")
     OPENROUTER_MODEL: str = Field(
         default="mistralai/mistral-small-3.1-24b-instruct:free",
         env="OPENROUTER_MODEL"
@@ -53,22 +53,24 @@ class Settings(BaseSettings):
         env="EMBEDDING_MODEL"
     )
     
+    # Database - Optional
+    DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
+    
     # Project paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
-    UPLOAD_DIR_PATH: Path = BASE_DIR / "uploads"
+    UPLOAD_DIR_PATH: Path = Field(default=None)
     
     @validator("UPLOAD_DIR_PATH", pre=True, always=True)
-    def create_upload_dir(cls, v: Path) -> Path:
-        if isinstance(v, str):
-            v = Path(v)
-        v.mkdir(parents=True, exist_ok=True)
-        return v
+    def create_upload_dir(cls, v, values):
+        base_dir = values.get('BASE_DIR', Path(__file__).resolve().parent.parent)
+        upload_dir = base_dir / values.get('UPLOAD_DIR', 'uploads')
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        return upload_dir
     
     class Config:
         case_sensitive = True
         env_file = ".env"
         env_file_encoding = "utf-8"
-
 
 # Global settings instance
 settings = Settings()

@@ -9,8 +9,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, Any
 import httpx
-from sentence_transformers import SentenceTransformer
 import torch
+
+from app.services.embedding_search import PolicyEmbeddingGenerator
 
 # PDF processing imports
 try:
@@ -39,7 +40,7 @@ class DocumentProcessor:
     """Handles document processing and question answering."""
     
     def __init__(self):
-        self.embedding_model = None
+        self.embedding_model = PolicyEmbeddingGenerator()
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.vector_store = None
         self.llm_service = None
@@ -56,17 +57,9 @@ class DocumentProcessor:
             self.llm_service = llm_service
         
     def _initialize_embedding_model(self):
-        """Initialize the sentence transformer model for embeddings."""
-        if self.embedding_model is None:
-            try:
-                self.embedding_model = SentenceTransformer(
-                    'all-MiniLM-L6-v2',  # Lightweight but effective model
-                    device=self.device
-                )
-                logger.info("Embedding model initialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to initialize embedding model: {e}")
-                raise
+        """Initialize the embedding model."""
+        # No need to initialize here as it's done in the PolicyEmbeddingGenerator
+        pass
     
     async def download_document(self, url: str) -> bytes:
         """Download a document from a URL or read from local file."""
