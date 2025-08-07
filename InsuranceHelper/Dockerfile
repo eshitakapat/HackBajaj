@@ -1,9 +1,6 @@
-# Build stage
-FROM python:3.9-slim as builder
+FROM python:3.9-slim
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,16 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt .
-RUN pip install --user -r requirements.txt
-
-# Runtime stage
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# Copy Python dependencies
-COPY --from=builder /root/.local /root/.local
-ENV PATH=/root/.local/bin:$PATH
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY . .
@@ -30,10 +18,6 @@ COPY . .
 # Create uploads directory
 RUN mkdir -p /app/uploads
 RUN chmod 777 /app/uploads
-
-# Set non-root user
-RUN useradd -m myuser && chown -R myuser:myuser /app
-USER myuser
 
 # Set environment variables
 ENV PYTHONPATH=/app

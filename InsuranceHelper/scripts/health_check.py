@@ -14,7 +14,7 @@ def check_health(base_url: str = "http://localhost:8000"):
     Args:
         base_url: Base URL of the API (default: http://localhost:8000)
     """
-    health_url = urljoin(base_url, "/api/v1/health")
+    health_url = urljoin(base_url, "/health")
     
     try:
         response = requests.get(health_url, timeout=5)

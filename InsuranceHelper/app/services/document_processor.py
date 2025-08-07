@@ -3,27 +3,21 @@ import logging
 import os
 import re
 import uuid
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, Any
 import httpx
 from sentence_transformers import SentenceTransformer
 import torch
-from sqlalchemy.orm import Session
-
-from app.services.document_store import DocumentStore
-from app.services.vector_store import vector_store
-from app.services.llm_prompt import llm_prompt_service
-from app.models.document_models import Document, Question
 
 logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     """Handles document processing and question answering."""
     
-    def __init__(self, db: Session):
-        self.vector_store = vector_store
-        self.document_store = DocumentStore(db)
+    def __init__(self):
         self.embedding_model = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.vector_store = None  # Will be initialized when needed
         
     def _initialize_embedding_model(self):
         """Initialize the sentence transformer model for embeddings."""

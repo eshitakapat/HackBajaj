@@ -1,11 +1,8 @@
 """Application configuration settings."""
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Union
 
-from pydantic import AnyHttpUrl, BaseSettings, Field, PostgresDsn, validator
-from pydantic.networks import PostgresDsn
-from pydantic.types import SecretStr
+from pydantic import BaseSettings, Field, validator
 
 
 class Settings(BaseSettings):
@@ -17,17 +14,6 @@ class Settings(BaseSettings):
     # Server settings
     HOST: str = Field(default="0.0.0.0", env="HOST")
     PORT: int = Field(default=8000, env="PORT")
-    
-    # Security
-    SECRET_KEY: str = Field(
-        default="0ed1b3e379e363e65b52c090f35648e913017fa88d757a36889962c787daad05",
-        env="SECRET_KEY"
-    )
-    JWT_ALGORITHM: str = Field(default="HS256", env="JWT_ALGORITHM")
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
-        default=1440,  # 24 hours
-        env="JWT_ACCESS_TOKEN_EXPIRE_MINUTES"
-    )
     
     # CORS
     CORS_ORIGINS: List[str] = Field(
@@ -42,19 +28,6 @@ class Settings(BaseSettings):
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
-    
-    # Legacy CORS setting for compatibility
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(
-        default=["http://localhost:3000", "http://localhost:8000"],
-        env="CORS_ORIGINS"
-    )
-    
-    # Database
-    POSTGRES_SERVER: str = Field(..., env="POSTGRES_SERVER")
-    POSTGRES_USER: str = Field(..., env="POSTGRES_USER")
-    POSTGRES_PASSWORD: SecretStr = Field(..., env="POSTGRES_PASSWORD")
-    POSTGRES_DB: str = Field(..., env="POSTGRES_DB")
-    DATABASE_URI: Optional[PostgresDsn] = Field(default=None, env="DATABASE_URI")
     
     # File upload settings
     MAX_FILE_SIZE_MB: int = Field(default=50, env="MAX_FILE_SIZE_MB")
@@ -87,30 +60,6 @@ class Settings(BaseSettings):
     # Project paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     UPLOAD_DIR_PATH: Path = BASE_DIR / "uploads"
-    
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[Union[str, AnyHttpUrl]]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
-    
-    @validator("DATABASE_URI", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
-        if isinstance(v, str):
-            return v
-            
-        # Build async PostgreSQL URI
-        return PostgresDsn.build(
-            scheme="postgresql+asyncpg",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD").get_secret_value()
-            if isinstance(values.get("POSTGRES_PASSWORD"), SecretStr)
-            else values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
-        )
     
     @validator("UPLOAD_DIR_PATH")
     def create_upload_dir(cls, v: Path) -> Path:

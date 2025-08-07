@@ -22,7 +22,7 @@ wheels/
 MANIFEST
 
 # Environment variables
-.env
+#.env
 .env.local
 .env.*.local
 !.env.example

@@ -1,37 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from typing import Generator
 import os
 
-from sqlalchemy.orm import Session
-
-# Import database and models
-from app.db.session import SessionLocal, engine
-from app.models.base import Base
-from app.models import document_models  # noqa: F401
-
-# Import API router
-from app.api import router as api_router
-
-# Import services and config
+# Import services
 from app.services.document_processor import DocumentProcessor
 from app.core.config import settings
-
-# Initialize database tables
-Base.metadata.create_all(bind=engine)
-
-def get_db() -> Generator[Session, None, None]:
-    """Dependency for getting DB session."""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def get_document_processor() -> DocumentProcessor:
-    """Dependency for getting document processor."""
-    return DocumentProcessor(SessionLocal())
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +13,9 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Initialize document processor
+document_processor = DocumentProcessor()
 
 # Create FastAPI app
 app = FastAPI(
@@ -59,16 +36,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router with version prefix
-app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Health check endpoint
-@app.get(f"{settings.API_V1_STR}/health")
+@app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {
-        "status": "healthy",
-        "version": "1.0.0"
+        "status": "ok",
+        "version": "1.0.0",
+        "environment": os.getenv("ENVIRONMENT", "development")
     }
 
 if __name__ == "__main__":
