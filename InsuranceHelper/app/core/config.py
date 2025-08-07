@@ -1,8 +1,7 @@
 """Application configuration settings."""
 from pathlib import Path
 from typing import List, Union
-
-from pydantic import BaseSettings, Field, validator
+from pydantic import BaseSettings, Field, validator, SecretStr
 
 
 class Settings(BaseSettings):
@@ -32,10 +31,6 @@ class Settings(BaseSettings):
     # File upload settings
     MAX_FILE_SIZE_MB: int = Field(default=50, env="MAX_FILE_SIZE_MB")
     UPLOAD_DIR: str = Field(default="uploads", env="UPLOAD_DIR")
-    ALLOWED_FILE_TYPES: List[str] = Field(
-        default=["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"],
-        env="ALLOWED_FILE_TYPES"
-    )
     
     # Vector Store (Pinecone)
     PINECONE_API_KEY: SecretStr = Field(..., env="PINECONE_API_KEY")
@@ -45,24 +40,27 @@ class Settings(BaseSettings):
     
     # LLM Configuration
     OPENROUTER_API_KEY: SecretStr = Field(..., env="OPENROUTER_API_KEY")
-    DEFAULT_LLM_MODEL: str = Field(
-        default="mistralai/mistral-7b-instruct",
-        env="DEFAULT_LLM_MODEL"
+    OPENROUTER_MODEL: str = Field(
+        default="mistralai/mistral-small-3.1-24b-instruct:free",
+        env="OPENROUTER_MODEL"
     )
-    
-    # Logging
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        env="LOG_FORMAT"
+    OPENROUTER_API_BASE: str = Field(
+        default="https://openrouter.ai/api/v1",
+        env="OPENROUTER_API_BASE"
+    )
+    EMBEDDING_MODEL: str = Field(
+        default="text-embedding-3-small",
+        env="EMBEDDING_MODEL"
     )
     
     # Project paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent
     UPLOAD_DIR_PATH: Path = BASE_DIR / "uploads"
     
-    @validator("UPLOAD_DIR_PATH")
+    @validator("UPLOAD_DIR_PATH", pre=True, always=True)
     def create_upload_dir(cls, v: Path) -> Path:
+        if isinstance(v, str):
+            v = Path(v)
         v.mkdir(parents=True, exist_ok=True)
         return v
     
