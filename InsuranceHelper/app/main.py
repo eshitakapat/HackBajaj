@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -8,16 +7,16 @@ import os
 from sqlalchemy.orm import Session
 
 # Import database and models
-from .db.session import SessionLocal, engine
-from .models.base import Base
-from .models import document_models  # noqa: F401
+from app.db.session import SessionLocal, engine
+from app.models.base import Base
+from app.models import document_models  # noqa: F401
 
 # Import API router
-from .api import router as api_router
+from app.api import router as api_router
 
 # Import services and config
-from .services.document_processor import DocumentProcessor
-from .core.config import settings
+from app.services.document_processor import DocumentProcessor
+from app.core.config import settings
 
 # Initialize database tables
 Base.metadata.create_all(bind=engine)
@@ -35,13 +34,16 @@ def get_document_processor() -> DocumentProcessor:
     return DocumentProcessor(SessionLocal())
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
     title="Insurance Document QA API",
-    description="API for processing and querying insurance documents",
+    description="API for processing policy documents and answering insurance questions",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -77,23 +79,3 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG
     )
-=======
-from fastapi import FastAPI 
-from app.api.routes import router as api_router 
-import logging 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-)
-
-app = FastAPI(
-    title="Policy Q&A API",
-    description="API for processing policy documents and answering insurance questions",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
-app.include_router(api_router)
->>>>>>> 39b93c7f5a15000ce1087200b5a45e0162204564
