@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: insurance_helper
+Version: 0.1.0
+License-File: LICENSE
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: sqlalchemy
+Requires-Dist: pydantic
+Requires-Dist: python-jose
+Requires-Dist: passlib
+Requires-Dist: python-multipart
+Requires-Dist: email-validator
+Requires-Dist: python-dotenv
+Dynamic: license-file
+Dynamic: requires-dist
