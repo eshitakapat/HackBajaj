@@ -14,7 +14,7 @@ HEADERS = {
 }
 
 def evaluate_decision(clause: str, context: dict) -> dict:
-    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "sk-or-v1-92f...202":
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "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":
         return mock_evaluate_decision(clause, context)
 
     prompt = f"""
@@ -41,6 +41,7 @@ Is this compliant? Provide rationale.
             "compliant": compliant,
             "rationale": rationale
         }
+    
     except Exception as e:
         print(f"OpenRouter API error or evaluation failed: {e}")
         return mock_evaluate_decision(clause, context)

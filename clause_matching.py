@@ -9,8 +9,11 @@ class ClauseMatcher:
         if not candidates:
             return []
 
+        # Extract texts from candidates (each is a dict with "text" key)
+        texts = [c["text"] for c in candidates]
+
         q_emb = self.model.encode([query])
-        c_emb = self.model.encode(candidates)
+        c_emb = self.model.encode(texts)
         sims = cosine_similarity(q_emb, c_emb)[0]
 
         def truncate_text(text, max_chars=150):
@@ -20,12 +23,12 @@ class ClauseMatcher:
                 snippet = snippet[:max_chars].rstrip() + "..."
             return snippet
 
-        scored = list(zip(candidates, sims))
+        scored = list(zip(candidates, sims))  # Keep original dicts with scores
         scored.sort(key=lambda x: x[1], reverse=True)
 
         return [
             {
-                "clause": c,
+                "source": c,
                 "clause_snippet": truncate_text(c["text"]),
                 "score": float(s)
             }

@@ -14,7 +14,7 @@ HEADERS = {
 }
 
 def parse_query_to_structured(query: str) -> dict:
-    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "sk-or-v1-92f...202":
+    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == "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":
         # Fallback mock parser
         return mock_parse_query(query)
 
